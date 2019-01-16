@@ -1,6 +1,6 @@
 import time
 
-def collect_data(sess, env, batch_size, gamma = 0.99, render=False):
+def collect_data(env, sess, batch_size, gamma = 0.99, render=False):
     # make some empty lists for logging.
     batch_obs = []          # for observations
     batch_acts = []         # for actions
@@ -38,7 +38,10 @@ def collect_data(sess, env, batch_size, gamma = 0.99, render=False):
             
             # the weight for each logprob(a_t|s_t) is reward-to-go from t
 #             batch_weights += list(np.cumsum(ep_rews[::-1])[::-1])
-            bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
+            if ep_len == 200:
+                bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
+            else:
+                bootstrap_value = 0
             batch_weights += compute_rewards_to_go(ep_rews, gamma, bootstrap_value)
             
             # reset episode-specific variables

@@ -1,30 +1,33 @@
 import tensorflow as tf
 import gym
 import numpy as np
+from src.data_collection import collect_data
 
 class VPG():
 
     def __init__(self, env):
         self._env = env
+        self._build_computational_graph()
 
-    def train(self, policy_learning_rate, value_function_learning_rate, value_function_updates, n_epochs = 100, n_runs = 10):
-        # todo graph laden
-        optimizer = tf.train.AdamOptimizer(0.003)
-        # optimizer_action_value = tf.train.AdamOptimizer(0.001)
-        optimizer_state_value = tf.train.AdamOptimizer(0.001)
+    def train(self, policy_learning_rate=0.0003, value_function_learning_rate = 0.001, value_function_updates = 50,\
+              n_epochs = 100, n_runs = 10):
+        obs_ph, act_ph, weights_ph, actions, loss, state_value_loss = self._graph
+
+        optimizer = tf.train.AdamOptimizer(policy_learning_rate)
+        optimizer_state_value = tf.train.AdamOptimizer(value_function_learning_rate)
+        print(loss, state_value_loss)
         train = optimizer.minimize(loss)
-        # train_action_value = optimizer_action_value.minimize(loss_action_value)
-        train_state_value = optimizer_state_value.minimize(loss_state_value)
+        train_state_value = optimizer_state_value.minimize(state_value_loss)
 
         sess = tf.Session()
-        n_runs = 3
-        n_epochs = 300
         episode_returns = [[] for x in range(n_runs)]
 
         for j in range(n_runs):
             sess.run(tf.global_variables_initializer())
             for i in range(n_epochs):
-                tmp1, tmp2, tmp3, batch_rets, batch_len = collect_data(sess, 4000 ,debug=False)
+                print('Run',j,'Epoch',i)
+                print('hello')
+                tmp1, tmp2, tmp3, batch_rets, batch_len = collect_data(self._env, sess, 4000 , render = False)
                 episode_returns[j].extend(batch_rets)
                 print(i, np.mean(batch_rets), np.min(batch_rets), np.max(batch_rets))
                 sess.run([train],feed_dict={
@@ -52,9 +55,10 @@ class VPG():
         return episode_returns
 
 
-    def build_computational_graph(self):
+    def _build_computational_graph(self):
+        env = self._env
         obs_dim = env.observation_space.shape[0]
-        n_acts = env.action_space.shape[0]
+        n_acts = 2
 
         # placeholder
         obs_ph = tf.placeholder(shape=(None, obs_dim), dtype=tf.float32)
@@ -87,5 +91,5 @@ class VPG():
         loss = -tf.reduce_mean((weights_ph - state_values) * log_probs)
 
         state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
-        graph = {obs_ph, act_ph, weights_ph, actions, loss, state_value_loss}
+        graph = [obs_ph, act_ph, weights_ph, actions, loss, state_value_loss]
         self._graph = graph
