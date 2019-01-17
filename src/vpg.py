@@ -3,6 +3,7 @@ import gym
 import numpy as np
 from src.data_collection import collect_data
 import numpy as np
+import logging
 
 class VPG():
 
@@ -16,6 +17,8 @@ class VPG():
 
     def train(self, policy_learning_rate=0.0003, value_function_learning_rate = 0.001, n_value_function_updates = 10,\
               n_epochs = 10):
+        logging.basicConfig(filename='training.log',level=logging.DEBUG)
+        logging.debug('Current Epoch, mean return, std return, min return, max return')
         obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss = self._graph
 
         optimizer_policy = tf.train.AdamOptimizer(policy_learning_rate)
@@ -30,7 +33,7 @@ class VPG():
         for i in range(n_epochs):
             batch_obs, batch_acts, batch_weights, batch_rets, batch_len = collect_data(self._env, sess, self._graph, 4000 , render = False)
             episode_returns.extend(batch_rets)
-            print(i, np.mean(batch_rets), np.min(batch_rets), np.max(batch_rets))
+            logging.debug('%i, %f, %f, %f, %f',i, np.mean(batch_rets), np.std(batch_rets), np.min(batch_rets), np.max(batch_rets))
 
             sess.run([train_policy],feed_dict={
                                             obs_ph: np.array(batch_obs),
