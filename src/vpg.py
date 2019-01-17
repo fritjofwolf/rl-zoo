@@ -8,13 +8,13 @@ class VPG():
 
     def __init__(self, env):
         self._env = env
-        if type(env.action_space) == 'gym.spaces.box.Box':
+        if type(env.action_space) == gym.spaces.box.Box:
             self._build_computational_graph_continuous_actions()
         else:
-            self._build_computational_graph_categoriacal_actions()   
+            self._build_computational_graph_categorical_actions()   
 
 
-    def train(self, policy_learning_rate=0.0003, value_function_learning_rate = 0.001, value_function_updates = 10,\
+    def train(self, policy_learning_rate=0.0003, value_function_learning_rate = 0.001, n_value_function_updates = 10,\
               n_epochs = 10):
         obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss = self._graph
 
@@ -28,24 +28,25 @@ class VPG():
 
         sess.run(tf.global_variables_initializer())
         for i in range(n_epochs):
-            tmp1, tmp2, tmp3, batch_rets, batch_len = collect_data(self._env, sess, self._graph, 4000 , render = False)
+            batch_obs, batch_acts, batch_weights, batch_rets, batch_len = collect_data(self._env, sess, self._graph, 4000 , render = False)
             episode_returns.extend(batch_rets)
             print(i, np.mean(batch_rets), np.min(batch_rets), np.max(batch_rets))
+
             sess.run([train_policy],feed_dict={
-                                            obs_ph: np.array(tmp1),
-                                            act_ph: np.array(tmp2),
-                                            weights_ph: np.array(tmp3)
+                                            obs_ph: np.array(batch_obs),
+                                            act_ph: np.array(batch_acts),
+                                            weights_ph: np.array(batch_weights)
                                         })
-            for _ in range(10):
+            for _ in range(n_value_function_updates):
                 sess.run([train_state_value],feed_dict={
-                                        obs_ph: np.array(tmp1),
-                                        act_ph: np.array(tmp2),
-                                        weights_ph: np.array(tmp3)
+                                        obs_ph: np.array(batch_obs),
+                                        act_ph: np.array(batch_acts),
+                                        weights_ph: np.array(batch_weights)
                                     })
             # v = sess.run([state_values], feed_dict={
-            #                                 obs_ph: np.array(tmp1),
-            #                                 act_ph: np.array(tmp2),
-            #                                 weights_ph: np.array(tmp3)
+            #                                 obs_ph: np.array(batch_obs),
+            #                                 act_ph: np.array(batch_acts),
+            #                                 weights_ph: np.array(batch_weights)
             #                             })
             # print("Value function mean and std:", np.mean(v), np.std(v))
             #print('Optimized')
@@ -85,6 +86,7 @@ class VPG():
         policy_loss = -tf.reduce_mean((weights_ph - state_values) * log_probs)
 
         state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
+
         graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
         self._graph = graph
 
@@ -117,14 +119,16 @@ class VPG():
         # variances
         log_std = tf.Variable(-0.5)
         std = tf.math.exp(log_std)
+
         # compute actions
         actions = tf.random.normal((1,1), mean=means, stddev=std)
 
-        # make loss function whose gradient, for the right data, is policy gradient
+        # make policy loss function whose gradient, for the right data, is policy gradient
         first_summand = tf.reduce_sum(((act_ph - means) / std)**2 + 2*log_std)
         log_probs = -0.5*(first_summand + n_acts * tf.math.log(2*np.pi))
         policy_loss = -tf.reduce_mean((weights_ph - state_values) * log_probs)
 
         state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
+
         graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
         self._graph = graph
