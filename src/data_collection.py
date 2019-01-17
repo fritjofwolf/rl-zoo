@@ -38,7 +38,7 @@ def collect_data(env, sess, batch_size, gamma = 0.99, render=False):
             
             # the weight for each logprob(a_t|s_t) is reward-to-go from t
 #             batch_weights += list(np.cumsum(ep_rews[::-1])[::-1])
-            if ep_len == 200:
+            if ep_len == env._max_episode_steps:
                 bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
             else:
                 bootstrap_value = 0
