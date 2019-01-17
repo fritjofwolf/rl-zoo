@@ -30,15 +30,14 @@ def collect_data(env, sess, computational_graph, batch_size, gamma = 0.99, rende
         ep_rews.append(rew)
 
         if done:
-            env.close()
-            render = False
+            if render:
+                env.close()
+                render = False
             # if episode is over, record info about episode
             ep_ret, ep_len = sum(ep_rews), len(ep_rews)
             batch_rets.append(ep_ret)
             batch_lens.append(ep_len)
             
-            # the weight for each logprob(a_t|s_t) is reward-to-go from t
-#             batch_weights += list(np.cumsum(ep_rews[::-1])[::-1])
             if ep_len == env._max_episode_steps:
                 bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
             else:
