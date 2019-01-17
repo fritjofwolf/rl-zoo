@@ -1,6 +1,7 @@
 import time
 
-def collect_data(env, sess, batch_size, gamma = 0.99, render=False):
+def collect_data(env, sess, computational_graph, batch_size, gamma = 0.99, render=False):
+    obs_ph, act_ph, weights_ph, actions, state_values, loss, state_value_loss = computational_graph
     # make some empty lists for logging.
     batch_obs = []          # for observations
     batch_acts = []         # for actions
