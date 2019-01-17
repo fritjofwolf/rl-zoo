@@ -8,7 +8,11 @@ class VPG():
 
     def __init__(self, env):
         self._env = env
-        self._build_computational_graph()
+        if type(env.action_space) == 'gym.spaces.box.Box':
+            self._build_computational_graph_continuous_actions()
+        else:
+            self._build_computational_graph_categoriacal_actions()   
+
 
     def train(self, policy_learning_rate=0.0003, value_function_learning_rate = 0.001, value_function_updates = 10,\
               n_epochs = 10):
@@ -48,10 +52,10 @@ class VPG():
         return episode_returns
 
 
-    def _build_computational_graph(self):
+    def _build_computational_graph_categorical_actions(self):
         env = self._env
         obs_dim = env.observation_space.shape[0]
-        n_acts = 2
+        n_acts = env.action_space.n
 
         # placeholder
         obs_ph = tf.placeholder(shape=(None, obs_dim), dtype=tf.float32)
@@ -86,41 +90,41 @@ class VPG():
 
 
 
-        def _build_computational_graph_continuous_actions(self):
-            env = self._env
-            obs_dim = env.observation_space.shape[0]
-            n_acts = 2
+    def _build_computational_graph_continuous_actions(self):
+        env = self._env
+        obs_dim = env.observation_space.shape[0]
+        n_acts = env.action_space.shape[0]
 
-            # placeholder
-            obs_ph = tf.placeholder(shape=(None, obs_dim), dtype=tf.float32)
-            act_ph = tf.placeholder(shape=(None,n_acts), dtype=tf.float32)
-            weights_ph = tf.placeholder(shape=(None,), dtype=tf.float32)
+        # placeholder
+        obs_ph = tf.placeholder(shape=(None, obs_dim), dtype=tf.float32)
+        act_ph = tf.placeholder(shape=(None,n_acts), dtype=tf.float32)
+        weights_ph = tf.placeholder(shape=(None,), dtype=tf.float32)
 
-            # network for gaussian means
-            mlp = tf.keras.models.Sequential()
-            mlp.add(tf.keras.layers.Dense(50, activation='tanh'))
-            mlp.add(tf.keras.layers.Dense(50, activation='tanh'))
-            mlp.add(tf.keras.layers.Dense(n_acts))
-            means = mlp(obs_ph)
+        # network for gaussian means
+        mlp = tf.keras.models.Sequential()
+        mlp.add(tf.keras.layers.Dense(50, activation='tanh'))
+        mlp.add(tf.keras.layers.Dense(50, activation='tanh'))
+        mlp.add(tf.keras.layers.Dense(n_acts))
+        means = mlp(obs_ph)
 
-            # value function network
-            state_value_mlp = tf.keras.models.Sequential()
-            state_value_mlp.add(tf.keras.layers.Dense(50, activation='relu'))
-            state_value_mlp.add(tf.keras.layers.Dense(50, activation='relu'))
-            state_value_mlp.add(tf.keras.layers.Dense(1))
-            state_values = state_value_mlp(obs_ph)
+        # value function network
+        state_value_mlp = tf.keras.models.Sequential()
+        state_value_mlp.add(tf.keras.layers.Dense(50, activation='relu'))
+        state_value_mlp.add(tf.keras.layers.Dense(50, activation='relu'))
+        state_value_mlp.add(tf.keras.layers.Dense(1))
+        state_values = state_value_mlp(obs_ph)
 
-            # variances
-            log_std = tf.Variable(-0.5)
-            std = tf.math.exp(log_std)
-            # compute actions
-            actions = tf.random.normal((1,1), mean=means, stddev=std)
+        # variances
+        log_std = tf.Variable(-0.5)
+        std = tf.math.exp(log_std)
+        # compute actions
+        actions = tf.random.normal((1,1), mean=means, stddev=std)
 
-            # make loss function whose gradient, for the right data, is policy gradient
-            first_summand = tf.reduce_sum(((act_ph - means) / std)**2 + 2*log_std)
-            log_probs = -0.5*(first_summand + n_acts * tf.math.log(2*np.pi))
-            policy_loss = -tf.reduce_mean((weights_ph - state_values) * log_probs)
+        # make loss function whose gradient, for the right data, is policy gradient
+        first_summand = tf.reduce_sum(((act_ph - means) / std)**2 + 2*log_std)
+        log_probs = -0.5*(first_summand + n_acts * tf.math.log(2*np.pi))
+        policy_loss = -tf.reduce_mean((weights_ph - state_values) * log_probs)
 
-            state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
-            graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
-            self._graph = graph
+        state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
+        graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
+        self._graph = graph
