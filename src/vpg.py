@@ -19,7 +19,7 @@ class VPG():
               n_epochs = 10):
         logging.basicConfig(filename='training.log',level=logging.DEBUG)
         logging.debug('Current Epoch, mean return, std return, min return, max return')
-        obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss = self._graph
+        obs_ph, act_ph, weights_ph, actions, state_values, entropy, policy_loss, state_value_loss = self._graph
 
         optimizer_policy = tf.train.AdamOptimizer(policy_learning_rate)
         train_policy = optimizer_policy.minimize(policy_loss)
@@ -28,9 +28,13 @@ class VPG():
 
         sess = tf.Session()
         episode_returns = []
+        epoch_state_value_loss = []
+        epoch_entropy = []
 
         sess.run(tf.global_variables_initializer())
         for i in range(n_epochs):
+            if i > 0 and i % 100 == 0:
+                print('Starting epoch:', i)
             batch_obs, batch_acts, batch_weights, batch_rets, batch_len = collect_data(self._env, sess, self._graph, 4000 , render = False)
             episode_returns.extend(batch_rets)
             logging.debug('%i, %f, %f, %f, %f',i, np.mean(batch_rets), np.std(batch_rets), np.min(batch_rets), np.max(batch_rets))
@@ -46,14 +50,16 @@ class VPG():
                                         act_ph: np.array(batch_acts),
                                         weights_ph: np.array(batch_weights)
                                     })
-            # v = sess.run([state_values], feed_dict={
-            #                                 obs_ph: np.array(batch_obs),
-            #                                 act_ph: np.array(batch_acts),
-            #                                 weights_ph: np.array(batch_weights)
-            #                             })
+            v, e = sess.run([state_value_loss, entropy], feed_dict={
+                                            obs_ph: np.array(batch_obs),
+                                            act_ph: np.array(batch_acts),
+                                            weights_ph: np.array(batch_weights)
+                                        })
+            epoch_state_value_loss.append(v)
+            epoch_entropy.append(e)
             # print("Value function mean and std:", np.mean(v), np.std(v))
             #print('Optimized')
-        return episode_returns
+        return episode_returns, epoch_state_value_loss, epoch_entropy
 
 
     def _build_computational_graph_categorical_actions(self):
@@ -82,6 +88,8 @@ class VPG():
 
         # make action selection op (outputs int actions, sampled from policy)
         actions = tf.squeeze(tf.multinomial(logits=logits,num_samples=1), axis=1)
+        action_probs = tf.nn.softmax(logits)
+        entropy = -tf.reduce_mean(tf.reduce_sum(action_probs * tf.math.log(action_probs), axis=1))
 
         # make loss function whose gradient, for the right data, is policy gradient
         action_masks = tf.one_hot(act_ph, n_acts)
@@ -90,7 +98,7 @@ class VPG():
 
         state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
 
-        graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
+        graph = [obs_ph, act_ph, weights_ph, actions, state_values, entropy, policy_loss, state_value_loss]
         self._graph = graph
 
 
