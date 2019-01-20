@@ -130,9 +130,10 @@ class VPG():
         # variances
         log_std = tf.Variable(-0.5)
         std = tf.math.exp(log_std)
-
+        entropy = 0.5 * tf.math.log(2*np.pi*np.e) + 0.5*log_std
         # compute actions
         actions = tf.random.normal((1,1), mean=means, stddev=std)
+
 
         # make policy loss function whose gradient, for the right data, is policy gradient
         first_summand = tf.reduce_sum(((act_ph - means) / std)**2 + 2*log_std)
@@ -141,5 +142,5 @@ class VPG():
 
         state_value_loss = tf.reduce_mean((weights_ph - state_values)**2)
 
-        graph = [obs_ph, act_ph, weights_ph, actions, state_values, policy_loss, state_value_loss]
+        graph = [obs_ph, act_ph, weights_ph, actions, state_values, entropy, policy_loss, state_value_loss]
         self._graph = graph
