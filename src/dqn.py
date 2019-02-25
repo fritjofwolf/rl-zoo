@@ -1,9 +1,8 @@
 import tensorflow as tf
 import gym
 import numpy as np
-from src.data_collection import collect_data
-import numpy as np
 import logging
+import tqdm
 
 class DQN():
 
@@ -16,48 +15,49 @@ class DQN():
         self._model_type = model_type
         self._learning_rate = learning_rate
         self._replay_buffer_size = replay_buffer_size
-        self._obs_dim = env.observation_space.shape[0]
-        self._n_acts = env.action_space.n
+        self._obs_dim = self._env.observation_space.shape[0]
+        self._n_acts = self._env.action_space.n
         self._build_computational_graph_categorical_actions()
+        self._finished_episodes = 0
+        self._finished_steps = 0
+        self._evaluation_scores = []
+        self._row_pointer = 0
 
-    # def train(self, n_episodes):
-    #     global mlp_action_val, mlp_target, new_obs_ph, new_state_action_values
-    #     row_pointer = 0
-    #     learnable = False
-    #     for i in range(n_episodes):
-    #         if i % 100 == 0:
-    #         done = False
-    #         state = env.reset()
-    #         cnt = 0
-    #         while not done:
-    #             action = select_action(sess, state, 0.1)
-    #             new_state, reward, done, _ = env.step(action)
-    #             add_sample(experience_replay_buffer, state, action, reward, new_state, done, row_pointer)
-    #             row_pointer += 1
-    #             row_pointer %= exp_replay_size
-    #             state = new_state
-    #             if learnable:
-    #                 update_q_function()
-    #             cnt += 1
-
-
-    def _train(self, n_episodes):
+    def train(self, n_steps = 10**6):
         self._fill_replay_buffer()
-        finished_training = False
-        while not finished_training:
+        continue_training = True
+        for _ in tqdm.tqdm(range(n_steps)):
             state, action, reward, new_state, done = self._sample_experience()
-            self._add_sample(state, action, reward, new_state, done)
+            self._add_sample_to_replay_buffer(state, action, reward, new_state, done)
             self._update_q_function()
-            # todo: fix name
-            finished_training, evaluate, target_update = self._compute_flags()
-            if target_update:
+            do_evaluation, do_update_target = self._compute_flags()
+            if do_update_target:
                 self._update_target_network()
-            if evaluate:
-                self._evaluate()
+            if do_evaluation:
+                self._evaluate_model(1)
+        return self._evaluation_scores
+
+
+    def _compute_flags(self):
+        do_evaluation = False
+        do_update_target = False
+        if self._finished_steps % 1000 == 0:
+            do_evaluation = True
+        if self._finished_steps % 10000 == 0:
+            do_update_target = True
+        return do_evaluation, do_update_target
 
 
     def _sample_experience(self):
-        #todo
+        state = self._state
+        action = self._select_action_eps_greedy(state, 0.1)
+        new_state, reward, done, info = self._env.step(action)
+        self._finished_steps += 1
+        if done:
+            self._state = self._env.reset()
+            self._finished_episodes += 1
+        else:
+            self._state = new_state
         return state, action, reward, new_state, done
 
 
@@ -65,13 +65,14 @@ class DQN():
         cnt = 0
         while cnt < self._experience_replay_buffer.shape[0]:
             done = False
-            state = env.reset()
+            state = self._env.reset()
             while not done:
                 action = np.random.randint(self._env.action_space.n)
-                new_state, reward, done, _ = env.step(action)
+                new_state, reward, done, _ = self._env.step(action)
                 self._add_sample_to_replay_buffer(state, action, reward, new_state, done)
                 state = new_state
                 cnt += 1
+        self._state = self._env.reset()
 
 
     def _update_target_network(self):
@@ -91,21 +92,26 @@ class DQN():
         
 
     def _evaluate_model(self, iterations):
+        old_state_action_values = self._graph[6]
+        obs_ph = self._graph[0]
         sum_return = 0
+        sum_q_function = 0
         env = self._evaluation_env
         for i in range(iterations):
             done = False
             state = env.reset()
             while not done:
                 action = self._select_action_eps_greedy(state, 0)
+                sum_q_function += self._sess.run(old_state_action_values, feed_dict={
+                                obs_ph:np.array(state).reshape(-1, self._obs_dim)}
+                                )[0][action]
                 new_state, reward, done, _ = env.step(action)
                 state = new_state
                 sum_return += reward
-        return sum_return / iterations
+        self._evaluation_scores.append((self._finished_steps, sum_return / iterations, sum_q_function / iterations))
                 
 
-            
-    def _update_q_function():
+    def _update_q_function(self):
         experience_batch = self._sample_experience_batch()
         states, actions, rewards, new_states, terminal_flags = self._extract_data(experience_batch)
         loss = self._gradient_step(states, actions, rewards, new_states, terminal_flags)
@@ -113,21 +119,24 @@ class DQN():
 
         
     def _gradient_step(self, states, actions, rewards, new_states, terminal_flags):
-        _, loss, debug_output = sess.run([train_action_value, action_value_loss, y], feed_dict={
-                                    obs_ph: np.array(states).reshape(-1, obs_dim),
+        train_action_value = self._graph[7]
+        action_value_loss = self._graph[8]
+        [obs_ph, act_ph, rew_ph, new_obs_ph, terminal_ph] = self._graph[:5]
+        _, loss = self._sess.run([train_action_value, action_value_loss], feed_dict={
+                                    obs_ph: np.array(states).reshape(-1, self._obs_dim),
                                     act_ph: np.array(actions),
                                     rew_ph: np.array(rewards),
-                                    new_obs_ph: np.array(new_states).reshape(-1,obs_dim),
+                                    new_obs_ph: np.array(new_states).reshape(-1, self._obs_dim),
                                     terminal_ph: np.array(terminal_flags)
                                 })
         return loss
         
     def _extract_data(self, experience_batch):
-        states = [x[:obs_dim] for x in experience_batch]
-        actions = [x[2*obs_dim] for x in experience_batch]
-        rewards = [x[2*obs_dim+1] for x in experience_batch]
-        new_states = [x[obs_dim:2*obs_dim] for x in experience_batch]
-        terminal_flags = [x[2*obs_dim+2] for x in experience_batch]
+        states = [x[:self._obs_dim] for x in experience_batch]
+        actions = [x[2*self._obs_dim] for x in experience_batch]
+        rewards = [x[2*self._obs_dim+1] for x in experience_batch]
+        new_states = [x[self._obs_dim:2*self._obs_dim] for x in experience_batch]
+        terminal_flags = [x[2*self._obs_dim+2] for x in experience_batch]
         return states, actions, rewards, new_states, terminal_flags
         
     def _sample_experience_batch(self):
@@ -138,8 +147,9 @@ class DQN():
     def _select_action_eps_greedy(self, state, eps):
         greedy_action = self._graph[5]
         obs_ph = self._graph[0]
+        sess = self._sess
         if np.random.rand() < eps:
-            action = np.random.randint(n_acts)
+            action = np.random.randint(self._n_acts)
         else:
             action = sess.run(greedy_action, {obs_ph: state.reshape(1,-1)})[0]
         return action
@@ -149,7 +159,7 @@ class DQN():
         pass
 
 
-    def _build_computational_graph_categorical_actions(self, network_type):
+    def _build_computational_graph_categorical_actions(self):
         env = self._env
         obs_dim = self._obs_dim
         n_acts = self._n_acts
@@ -164,7 +174,7 @@ class DQN():
         terminal_ph = tf.placeholder(shape=(None), dtype=tf.float32)
 
         # make core of state-action-value function network
-        if network_type == 'dense':
+        if self._model_type == 'dense':
             q_value_network = self._build_dense_model()
             target_network = self._build_dense_model()
         else:
@@ -192,14 +202,14 @@ class DQN():
         self._sess.run(tf.global_variables_initializer())
 
         self._graph = [obs_ph, act_ph, rew_ph, new_obs_ph, terminal_ph, greedy_action,\
-                 state_values, train_action_value, action_value_loss, q_value_network, target_network]
+                 old_state_action_values, train_action_value, action_value_loss, q_value_network, target_network]
 
 
     def _build_dense_model(self):
         q_value_network = tf.keras.models.Sequential()
         q_value_network.add(tf.keras.layers.Dense(50, activation='relu'))
         q_value_network.add(tf.keras.layers.Dense(50, activation='relu'))
-        q_value_network.add(tf.keras.layers.Dense(n_acts, activation=None))
+        q_value_network.add(tf.keras.layers.Dense(self._n_acts, activation=None))
         return q_value_network
 
     def _build_cnn_model(self):
