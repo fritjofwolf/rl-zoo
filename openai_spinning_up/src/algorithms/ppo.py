@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow_probability as tfp
 import gym
 import numpy as np
 import logging
@@ -24,6 +25,9 @@ class PPO():
 
     def train(self, n_epochs, K = 5):
         [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, policy_network, old_policy_network, actions, train_policy, train_state_value] = self._graph
+        print(np.array(self._sess.run(actions,feed_dict={
+                                            obs_ph: np.zeros(3).reshape(-1, self._obs_dim),
+                                        })).shape)
         data_collector = A2CDataCollector(self._sess, self._env_name, actions, obs_ph, 20, 20)
         for i in tqdm_notebook(range(n_epochs)):
             self._update_old_network()
@@ -123,7 +127,9 @@ class PPO():
         # make loss function whose gradient, for the right data, is policy gradient
         obs_logits = policy_network(obs_ph)
         obs_logits_old_network = policy_network(obs_ph)
-        actions = tf.random.normal((1,1), mean=obs_logits, stddev=std)
+        tfd = tfp.distributions
+        dist = tfd.Normal(loc=obs_logits, scale=np.ones(self._n_acts)*std)
+        actions = dist.sample(1)
 
         Z = (2*np.pi*std**2)**0.5
         selected_action_probs = tf.math.exp(-0.5*(act_ph - obs_logits)**2 / std**2) / Z
