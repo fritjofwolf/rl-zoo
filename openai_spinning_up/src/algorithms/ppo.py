@@ -25,9 +25,6 @@ class PPO():
 
     def train(self, n_epochs, K = 5):
         [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, policy_network, old_policy_network, actions, train_policy, train_state_value] = self._graph
-        print(np.array(self._sess.run(actions,feed_dict={
-                                            obs_ph: np.zeros(3).reshape(-1, self._obs_dim),
-                                        })).shape)
         data_collector = A2CDataCollector(self._sess, self._env_name, actions, obs_ph, 20, 20)
         for i in tqdm_notebook(range(n_epochs)):
             self._update_old_network()
@@ -35,7 +32,7 @@ class PPO():
             for j in range(K):
                 self._sess.run([train_policy],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts),
+                                            act_ph: np.array(acts).reshape(-1, self._n_acts),
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
