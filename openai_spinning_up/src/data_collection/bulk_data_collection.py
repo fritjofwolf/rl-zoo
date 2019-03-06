@@ -1,7 +1,7 @@
 import time
 
-def collect_data(env, sess, computational_graph, batch_size, gamma = 0.99, render=False):
-    obs_ph, act_ph, weights_ph, actions, state_values, entropy, loss, state_value_loss = computational_graph
+def collect_data_bulk(env, sess, computational_graph, batch_size, gamma = 0.99, render=False):
+    obs_ph, act_ph, weights_ph, actions, state_values, entropy, loss, state_value_loss, x = computational_graph
     # make some empty lists for logging.
     batch_obs = []          # for observations
     batch_acts = []         # for actions
@@ -38,11 +38,11 @@ def collect_data(env, sess, computational_graph, batch_size, gamma = 0.99, rende
             batch_rets.append(ep_ret)
             batch_lens.append(ep_len)
             
-            if ep_len == env._max_episode_steps:
-                bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
-            else:
-                bootstrap_value = 0
-            batch_weights += compute_rewards_to_go(ep_rews, gamma, bootstrap_value)
+            # if ep_len == env._max_episode_steps:
+            #     bootstrap_value = sess.run(state_values, {obs_ph:obs.reshape(1,-1)})[0][0]
+            # else:
+            #     bootstrap_value = 0
+            batch_weights += compute_rewards_to_go(ep_rews, gamma, 0)
             
             # reset episode-specific variables
             obs, done, ep_rews = env.reset(), False, []
