@@ -126,7 +126,7 @@ class PPO():
         obs_logits_old_network = policy_network(obs_ph)
         tfd = tfp.distributions
         dist = tfd.Normal(loc=obs_logits, scale=np.ones(self._n_acts)*std)
-        actions = dist.sample(1)
+        actions = dist.sample(1)[0]
 
         Z = (2*np.pi*std**2)**0.5
         selected_action_probs = tf.math.exp(-0.5*(act_ph - obs_logits)**2 / std**2) / Z
