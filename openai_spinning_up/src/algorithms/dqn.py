@@ -122,6 +122,15 @@ class DQN():
         train_action_value = self._graph[7]
         action_value_loss = self._graph[8]
         [obs_ph, act_ph, rew_ph, new_obs_ph, terminal_ph] = self._graph[:5]
+        x = self._graph[-2]
+        y = self._graph[-1]
+        print(np.array(self._sess.run([y], feed_dict={
+                                    obs_ph: np.array(states).reshape(-1, self._obs_dim),
+                                    act_ph: np.array(actions),
+                                    rew_ph: np.array(rewards),
+                                    new_obs_ph: np.array(new_states).reshape(-1, self._obs_dim),
+                                    terminal_ph: np.array(terminal_flags)
+                                })).shape)
         _, loss = self._sess.run([train_action_value, action_value_loss], feed_dict={
                                     obs_ph: np.array(states).reshape(-1, self._obs_dim),
                                     act_ph: np.array(actions),
@@ -202,7 +211,7 @@ class DQN():
         self._sess.run(tf.global_variables_initializer())
 
         self._graph = [obs_ph, act_ph, rew_ph, new_obs_ph, terminal_ph, greedy_action,\
-                 old_state_action_values, train_action_value, action_value_loss, q_value_network, target_network]
+                 old_state_action_values, train_action_value, action_value_loss, q_value_network, target_network, old_selected_action_values, y]
 
 
     def _build_dense_model(self):
