@@ -6,7 +6,7 @@ import tqdm
 
 class DQN():
 
-    def __init__(self, env_name, model_type = 'dense', gamma = 0.99, learning_rate = 0.001, replay_buffer_size = 1000,\
+    def __init__(self, env_name, model_type = 'dense', gamma = 0.99, learning_rate = 0.00025, replay_buffer_size = 10000,\
                     batch_size = 32):
         self._env = gym.make(env_name)
         self._evaluation_env = gym.make(env_name)
@@ -22,11 +22,13 @@ class DQN():
         self._finished_steps = 0
         self._evaluation_scores = []
         self._row_pointer = 0
+        self._exploration_rate = 1
+        self._exploration_decay = 0.99999
 
     def train(self, n_steps = 10**6):
         self._fill_replay_buffer()
         continue_training = True
-        for _ in tqdm.tqdm(range(n_steps)):
+        for j in tqdm.tqdm_notebook(range(n_steps)):
             state, action, reward, new_state, done = self._sample_experience()
             self._add_sample_to_replay_buffer(state, action, reward, new_state, done)
             self._update_q_function()
@@ -35,6 +37,7 @@ class DQN():
                 self._update_target_network()
             if do_evaluation:
                 self._evaluate_model(1)
+        self._evaluate_model(100)
         return self._evaluation_scores
 
 
@@ -50,7 +53,8 @@ class DQN():
 
     def _sample_experience(self):
         state = self._state
-        action = self._select_action_eps_greedy(state, 0.1)
+        self._exploration_rate = max(self._exploration_decay*self._exploration_rate, 0.1)
+        action = self._select_action_eps_greedy(state, self._exploration_rate)
         new_state, reward, done, info = self._env.step(action)
         self._finished_steps += 1
         if done:
@@ -122,15 +126,15 @@ class DQN():
         train_action_value = self._graph[7]
         action_value_loss = self._graph[8]
         [obs_ph, act_ph, rew_ph, new_obs_ph, terminal_ph] = self._graph[:5]
-        x = self._graph[-2]
-        y = self._graph[-1]
-        print(np.array(self._sess.run([y], feed_dict={
-                                    obs_ph: np.array(states).reshape(-1, self._obs_dim),
-                                    act_ph: np.array(actions),
-                                    rew_ph: np.array(rewards),
-                                    new_obs_ph: np.array(new_states).reshape(-1, self._obs_dim),
-                                    terminal_ph: np.array(terminal_flags)
-                                })).shape)
+        # x = self._graph[-2]
+        # y = self._graph[-1]
+        # print(np.array(self._sess.run([y], feed_dict={
+        #                             obs_ph: np.array(states).reshape(-1, self._obs_dim),
+        #                             act_ph: np.array(actions),
+        #                             rew_ph: np.array(rewards),
+        #                             new_obs_ph: np.array(new_states).reshape(-1, self._obs_dim),
+        #                             terminal_ph: np.array(terminal_flags)
+        #                         })).shape)
         _, loss = self._sess.run([train_action_value, action_value_loss], feed_dict={
                                     obs_ph: np.array(states).reshape(-1, self._obs_dim),
                                     act_ph: np.array(actions),
@@ -216,13 +220,13 @@ class DQN():
 
     def _build_dense_model(self):
         q_value_network = tf.keras.models.Sequential()
-        q_value_network.add(tf.keras.layers.Dense(50, activation='relu'))
-        q_value_network.add(tf.keras.layers.Dense(50, activation='relu'))
-        q_value_network.add(tf.keras.layers.Dense(self._n_acts, activation=None))
+        q_value_network.add(tf.keras.layers.Dense(16, activation='relu'))
+        q_value_network.add(tf.keras.layers.Dense(16, activation='relu'))
+        q_value_network.add(tf.keras.layers.Dense(self._n_acts, activation='linear'))
         return q_value_network
 
-    def _build_cnn_model(self):
-        q_value_network = tf.keras.models.Sequential()
-        # todo add cnn
+    # def _build_cnn_model(self):
+    #     q_value_network = tf.keras.models.Sequential()
+    #     # todo add cnn
 
-        return q_value_network
+    #     return q_value_network
