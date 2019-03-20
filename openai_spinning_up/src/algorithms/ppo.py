@@ -14,12 +14,15 @@ class PPO():
         self._learning_rate = learning_rate
         self._env_name = env_name
         self._gamma = gamma
+        # self._obs_dim = 100800
         self._obs_dim = self._env.observation_space.shape[0]
         if type(self._env.action_space) == gym.spaces.box.Box:
             self._n_acts = self._env.action_space.shape[0]
+            self._action_resizing_factor = self._n_acts
             self._build_computational_graph_continuous_actions()
         else:
             self._n_acts = self._env.action_space.n
+            self._action_resizing_factor = 1
             self._build_computational_graph_categorical_actions()
 
 
@@ -32,7 +35,7 @@ class PPO():
             for j in range(K):
                 self._sess.run([train_policy],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1, self._n_acts),
+                                            act_ph: np.array(acts).reshape(-1),
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
@@ -40,18 +43,11 @@ class PPO():
             for j in range(30):
                 self._sess.run([train_state_value],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts),
+                                            act_ph: np.array(acts).reshape(-1),
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
                                         })
-            # print(np.array(self._sess.run(x,feed_dict={
-            #                                 obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-            #                                 act_ph: np.array(acts),
-            #                                 new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
-            #                                 rew_ph: np.array(rews).reshape(-1, 1),
-            #                                 terminal_ph: np.array(terminal).reshape(-1, 1)
-            #                             })).shape)
         return data_collector.get_episode_statistics()
 
     def _update_old_network(self):
@@ -157,7 +153,7 @@ class PPO():
 
     def _build_network(self, activation = 'relu', n_output_units = 1):
         mlp = tf.keras.models.Sequential()
-        mlp.add(tf.keras.layers.Dense(50, activation=activation))
-        mlp.add(tf.keras.layers.Dense(50, activation=activation))
+        mlp.add(tf.keras.layers.Dense(16, activation=activation))
+        mlp.add(tf.keras.layers.Dense(16, activation=activation))
         mlp.add(tf.keras.layers.Dense(n_output_units, activation=None))
         return mlp
