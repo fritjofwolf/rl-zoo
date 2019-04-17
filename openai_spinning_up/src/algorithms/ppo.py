@@ -66,8 +66,6 @@ class PPO():
         # self._graph[5].save_weights(checkpoint_path+'policy_network.h5')
         self._graph[5].save(checkpoint_path+'policy_network.h5')
         self._graph[7].save(checkpoint_path+'state_network.h5')
-        print("Weights after training")
-        print(self._graph[5].get_weights())
 
     def _update_old_network(self):
         policy_network = self._graph[5]
