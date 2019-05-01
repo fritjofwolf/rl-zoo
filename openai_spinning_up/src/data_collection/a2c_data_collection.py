@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import scipy
 
 class A2CDataCollector():
     
@@ -50,11 +51,12 @@ class A2CDataCollector():
         env = self._envs[env_id]
         obs = self._states[env_id]
         done = False
-        
+        obs = self._preprocess_atari_states(obs)
         for _ in range(self._n_samples):
             batch_obs.append(obs.copy())
             act = self._sess.run(self._actions, {self._obs_ph: obs.reshape(1,-1)})[0]
             obs, rew, done, info = env.step(act)
+            obs = self._preprocess_atari_states(obs)
             batch_new_obs.append(obs.copy())
             batch_terminal.append(float(done))
             batch_acts.append(act)
@@ -72,3 +74,12 @@ class A2CDataCollector():
                 obs, done= env.reset(), False
         self._states[env_id] = obs
         return batch_obs, batch_acts, batch_new_obs, batch_rews, batch_terminal
+
+    def _preprocess_atari_states(self, state):
+        if len(state.shape) == 3:
+            grey_scale_image = np.mean(state, axis = 2)
+            resized_image = scipy.misc.imresize(grey_scale_image, (84,84))
+            return resized_image
+        else:
+            return state
+        
