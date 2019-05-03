@@ -37,32 +37,40 @@ class PPO():
         with self._sess.as_default():
             print('In training procedure, before training')
             print(np.mean(self._graph[5].get_weights()[0]))
+        print(self._sess.run(tf.report_uninitialized_variables()))
+
         for i in tqdm_notebook(range(n_epochs)):
             self._update_old_network()
             obs, acts, new_obs, rews, terminal = data_collector.collect_data()
-            
-            # for j in range(K):
-            #     self._sess.run([train_policy],feed_dict={
-            #                                 obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-            #                                 act_ph: np.array(acts).reshape(-1),
-            #                                 new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
-            #                                 rew_ph: np.array(rews).reshape(-1, 1),
-            #                                 terminal_ph: np.array(terminal).reshape(-1, 1)
-            #                             })
+            print(self._sess.run(self.x, feed_dict={
+                        obs_ph: np.array(obs).reshape(-1, self._obs_dim),
+                        act_ph: np.array(acts).reshape(-1),
+                        new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
+                        rew_ph: np.array(rews).reshape(-1, 1),
+                        terminal_ph: np.array(terminal).reshape(-1, 1)
+            }))
+            for j in range(K):
+                self._sess.run([train_policy],feed_dict={
+                                            obs_ph: np.array(obs).reshape(-1, self._obs_dim),
+                                            act_ph: np.array(acts).reshape(-1),
+                                            new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
+                                            rew_ph: np.array(rews).reshape(-1, 1),
+                                            terminal_ph: np.array(terminal).reshape(-1, 1)
+                                        })
 
-            # for j in range(30):
-            #     with self._sess.as_default():
-            #         self._sess.run([train_state_value],feed_dict={
-            #                                     obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-            #                                     act_ph: np.array(acts).reshape(-1),
-            #                                     new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
-            #                                     rew_ph: np.array(rews).reshape(-1, 1),
-            #                                     terminal_ph: np.array(terminal).reshape(-1, 1)
-            #                                 })
+            for j in range(30):
+                with self._sess.as_default():
+                    self._sess.run([train_state_value],feed_dict={
+                                                obs_ph: np.array(obs).reshape(-1, self._obs_dim),
+                                                act_ph: np.array(acts).reshape(-1),
+                                                new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
+                                                rew_ph: np.array(rews).reshape(-1, 1),
+                                                terminal_ph: np.array(terminal).reshape(-1, 1)
+                                            })
         with self._sess.as_default():
             print('In training procedure, after training')
             print(np.mean(self._graph[5].get_weights()[0]))
-        # self._save_model()
+        self._save_model()
         return data_collector.get_episode_statistics()
 
     def _save_model(self):
@@ -92,7 +100,7 @@ class PPO():
         terminal_ph = tf.placeholder(shape=(None,1), dtype=tf.float32)
 
         self._sess = tf.Session()
-
+            
 
         if self._model_path:
             print('Models loaded')
@@ -109,6 +117,7 @@ class PPO():
             old_policy_network = self._build_network('tanh', self._n_acts)
             state_value_network = self._build_network('relu', 1)
             self._sess.run(tf.global_variables_initializer())
+
 
         with self._sess.as_default(): 
             state_value = state_value_network(obs_ph)
@@ -135,7 +144,12 @@ class PPO():
             state_value_optimizer = tf.train.AdamOptimizer(self._learning_rate)
             train_policy = policy_optimizer.minimize(policy_loss)
             train_state_value = state_value_optimizer.minimize(state_value_loss)
-        
+            self._sess.run(tf.variables_initializer(policy_optimizer.variables()))
+            self._sess.run(tf.variables_initializer(state_value_optimizer.variables()))
+
+
+
+        self.x = state_value_loss
         self._graph = [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, \
                         policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value]
 
