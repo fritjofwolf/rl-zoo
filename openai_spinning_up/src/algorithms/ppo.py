@@ -34,26 +34,35 @@ class PPO():
     def train(self, n_epochs, K = 5):
         [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value] = self._graph
         data_collector = A2CDataCollector(self._sess, self._env_name, actions, obs_ph, 20, 20)
+        with self._sess.as_default():
+            print('In training procedure, before training')
+            print(np.mean(self._graph[5].get_weights()[0]))
         for i in tqdm_notebook(range(n_epochs)):
             self._update_old_network()
             obs, acts, new_obs, rews, terminal = data_collector.collect_data()
-            for j in range(K):
-                self._sess.run([train_policy],feed_dict={
-                                            obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1),
-                                            new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
-                                            rew_ph: np.array(rews).reshape(-1, 1),
-                                            terminal_ph: np.array(terminal).reshape(-1, 1)
-                                        })
-            for j in range(30):
-                self._sess.run([train_state_value],feed_dict={
-                                            obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1),
-                                            new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
-                                            rew_ph: np.array(rews).reshape(-1, 1),
-                                            terminal_ph: np.array(terminal).reshape(-1, 1)
-                                        })
-        self._save_model()
+            
+            # for j in range(K):
+            #     self._sess.run([train_policy],feed_dict={
+            #                                 obs_ph: np.array(obs).reshape(-1, self._obs_dim),
+            #                                 act_ph: np.array(acts).reshape(-1),
+            #                                 new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
+            #                                 rew_ph: np.array(rews).reshape(-1, 1),
+            #                                 terminal_ph: np.array(terminal).reshape(-1, 1)
+            #                             })
+
+            # for j in range(30):
+            #     with self._sess.as_default():
+            #         self._sess.run([train_state_value],feed_dict={
+            #                                     obs_ph: np.array(obs).reshape(-1, self._obs_dim),
+            #                                     act_ph: np.array(acts).reshape(-1),
+            #                                     new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
+            #                                     rew_ph: np.array(rews).reshape(-1, 1),
+            #                                     terminal_ph: np.array(terminal).reshape(-1, 1)
+            #                                 })
+        with self._sess.as_default():
+            print('In training procedure, after training')
+            print(np.mean(self._graph[5].get_weights()[0]))
+        # self._save_model()
         return data_collector.get_episode_statistics()
 
     def _save_model(self):
@@ -64,8 +73,10 @@ class PPO():
         #     json_file.write(model_json)
         # # serialize weights to HDF5
         # self._graph[5].save_weights(checkpoint_path+'policy_network.h5')
-        self._graph[5].save(checkpoint_path+'policy_network.h5')
-        self._graph[7].save(checkpoint_path+'state_network.h5')
+        with self._sess.as_default():
+            self._graph[5].save(checkpoint_path+'policy_network.h5')
+            self._graph[7].save(checkpoint_path+'state_network.h5')
+        print('Models saved')
 
     def _update_old_network(self):
         policy_network = self._graph[5]
@@ -80,54 +91,54 @@ class PPO():
         rew_ph = tf.placeholder(shape=(None,1), dtype=tf.float32)
         terminal_ph = tf.placeholder(shape=(None,1), dtype=tf.float32)
 
-        # build networks
-        policy_network = self._build_network('tanh', self._n_acts)
-        old_policy_network = self._build_network('tanh', self._n_acts)
-        state_value_network = self._build_network('relu', 1)
-        
-        state_value = state_value_network(obs_ph)
-        new_state_value = state_value_network(new_obs_ph)
-        td_target = rew_ph + self._gamma * new_state_value * (1-terminal_ph)
-
-        # make loss function whose gradient, for the right data, is policy gradient
-        obs_logits = policy_network(obs_ph)
-        obs_logits_old_network = policy_network(obs_ph)
-        actions = tf.squeeze(tf.multinomial(logits=obs_logits,num_samples=1), axis=1)
-        action_masks = tf.one_hot(act_ph, self._n_acts)
-        selected_action_probs = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits), axis=1)
-        selected_action_probs_old_network = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits_old_network), axis=1)
-
-        r = selected_action_probs / tf.stop_gradient(selected_action_probs_old_network)
-        advantages = tf.squeeze(td_target - state_value, axis=1)
-        factor = 1 + 0.2 * tf.math.sign(advantages)
-        policy_loss = -tf.reduce_mean(tf.math.minimum(advantages*r, advantages*factor))
-
-        state_value_loss = tf.losses.mean_squared_error(tf.stop_gradient(td_target), state_value)
-
-        policy_optimizer = tf.train.AdamOptimizer(self._learning_rate)
-        state_value_optimizer = tf.train.AdamOptimizer(self._learning_rate)
-        train_policy = policy_optimizer.minimize(policy_loss)
-        train_state_value = state_value_optimizer.minimize(state_value_loss)
-        
-        if self._model_path:
-            # load json and create model
-            # json_file = open(self._model_path+'policy_model.json', 'r')
-            # loaded_model_json = json_file.read()
-            # json_file.close()
-            # policy_network = model_from_json(loaded_model_json)
-            # # load weights into new model
-            # policy_network.load_weights(self._model_path+'policy_network.h5')
-            # print("Loaded model from disk")
-            # new_model = keras.models.load_model('my_model.h5')
-            # new_model.summary()
-            policy_network = load_model(self._model_path+'/policy_network.h5')
-            old_policy_network = load_model(self._model_path+'/policy_network.h5')
-            state_value_network = load_model(self._model_path+'/state_network.h5')
-        #     print('Model loaded successfully')
         self._sess = tf.Session()
-        self._sess.run(tf.global_variables_initializer())
+
+
+        if self._model_path:
+            print('Models loaded')
+            with self._sess.as_default():
+                policy_network = load_model(self._model_path+'/policy_network.h5')
+                old_policy_network = load_model(self._model_path+'/policy_network.h5')
+                state_value_network = load_model(self._model_path+'/state_network.h5')
+                print('Directly after loading')
+                print(np.mean(policy_network.get_weights()[0]))
+            
+        else:
+            print('Used new models')
+            policy_network = self._build_network('tanh', self._n_acts)
+            old_policy_network = self._build_network('tanh', self._n_acts)
+            state_value_network = self._build_network('relu', 1)
+            self._sess.run(tf.global_variables_initializer())
+
+        with self._sess.as_default(): 
+            state_value = state_value_network(obs_ph)
+            new_state_value = state_value_network(new_obs_ph)
+            td_target = rew_ph + self._gamma * new_state_value * (1-terminal_ph)
+
+            # make loss function whose gradient, for the right data, is policy gradient
+            obs_logits = policy_network(obs_ph)
+            #### ERROR!!!!
+            obs_logits_old_network = policy_network(obs_ph)
+            actions = tf.squeeze(tf.multinomial(logits=obs_logits,num_samples=1), axis=1)
+            action_masks = tf.one_hot(act_ph, self._n_acts)
+            selected_action_probs = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits), axis=1)
+            selected_action_probs_old_network = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits_old_network), axis=1)
+
+            r = selected_action_probs / tf.stop_gradient(selected_action_probs_old_network)
+            advantages = tf.squeeze(td_target - state_value, axis=1)
+            factor = 1 + 0.2 * tf.math.sign(advantages)
+            policy_loss = -tf.reduce_mean(tf.math.minimum(advantages*r, advantages*factor))
+
+            state_value_loss = tf.losses.mean_squared_error(tf.stop_gradient(td_target), state_value)
+
+            policy_optimizer = tf.train.AdamOptimizer(self._learning_rate)
+            state_value_optimizer = tf.train.AdamOptimizer(self._learning_rate)
+            train_policy = policy_optimizer.minimize(policy_loss)
+            train_state_value = state_value_optimizer.minimize(state_value_loss)
+        
         self._graph = [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, \
                         policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value]
+
 
     def _build_computational_graph_continuous_actions(self):
         # define placeholder
