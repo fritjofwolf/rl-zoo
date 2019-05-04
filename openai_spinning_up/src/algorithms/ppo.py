@@ -57,9 +57,13 @@ class PPO():
         return data_collector.get_episode_statistics()
 
     def _save_model(self):
+        if self._model_path:
+            saving_path = self._model_path
+        else:
+            saving_path = '/home/janus/models/'
         with self._sess.as_default():
-            self._graph[5].save(self._model_path+'policy_network.h5')
-            self._graph[7].save(self._model_path+'state_network.h5')
+            self._graph[5].save(saving_path+'policy_network.h5')
+            self._graph[7].save(saving_path+'state_network.h5')
         print('Models saved')
 
     def _update_old_network(self):
