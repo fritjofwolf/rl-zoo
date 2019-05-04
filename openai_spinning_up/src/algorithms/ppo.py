@@ -99,8 +99,7 @@ class PPO():
 
         # make loss function whose gradient, for the right data, is policy gradient
         obs_logits = policy_network(obs_ph)
-        #### ERROR!!!!
-        obs_logits_old_network = policy_network(obs_ph)
+        obs_logits_old_network = old_policy_network(obs_ph)
         actions = tf.squeeze(tf.multinomial(logits=obs_logits,num_samples=1), axis=1)
         action_masks = tf.one_hot(act_ph, self._n_acts)
         selected_action_probs = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits), axis=1)
