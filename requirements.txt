@@ -3,5 +3,7 @@ matplotlib
 numpy
 keras
 tensorflow
+tensorflow_probability
+tqdm
 pandas
 gym
