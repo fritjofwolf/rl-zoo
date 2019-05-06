@@ -178,8 +178,8 @@ class PPO():
 
 
     def _build_network(self, activation = 'relu', n_output_units = 1):
-        mlp = keras.models.Sequential()
-        mlp.add(keras.layers.Dense(16, activation=activation, input_shape=(self._obs_dim,)))
-        mlp.add(keras.layers.Dense(16, activation=activation))
-        mlp.add(keras.layers.Dense(n_output_units, activation=None))
+        mlp = tf.keras.models.Sequential()
+        mlp.add(tf.keras.layers.Dense(16, activation=activation, input_shape=(self._obs_dim,)))
+        mlp.add(tf.keras.layers.Dense(16, activation=activation))
+        mlp.add(tf.keras.layers.Dense(n_output_units, activation=None))
         return mlp
