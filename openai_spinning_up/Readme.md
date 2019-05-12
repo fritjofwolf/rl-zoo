@@ -19,6 +19,6 @@ Following, there are some results from the implementation of the Proximal Policy
 LunarLander-v2 (https://gym.openai.com/envs/LunarLander-v2/) is a simple enviroment with categorical actions. The goal is to land a lander onto the landing pad without crashing it by using three different fire engines while using as less fuel as possible. With 6 state variables, 4 different actions and a time horizon of 1000 steps, it is much harder to master than CartPole, but still easy enough to do several iterations in a reasonable amount of time.
 
 <p align="center">
-    <img src="https://github.com/fritjofwolf/rl-zoo/blob/master/openai_spinning_up/media/lunar_lander_2000.jpg" width="400" height="400"/>
+    <img src="https://github.com/fritjofwolf/rl-zoo/blob/master/openai_spinning_up/media/lunar_lander_2000.png" width="400" height="400"/>
 </p>
 ### Half-Cheetah-v0
