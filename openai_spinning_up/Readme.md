@@ -22,7 +22,7 @@ LunarLander-v2 (https://gym.openai.com/envs/LunarLander-v2/) is a simple envirom
     <img src="https://github.com/fritjofwolf/rl-zoo/blob/master/openai_spinning_up/media/lunar_lander_2000.png" width="800" height="800"/>
 </p>
 
-### Half-Cheetah-v0
+### HalfCheetahPyBulletEnv-v0
 
 Half-Cheetah is one of the MuJoCo-Environments (https://gym.openai.com/envs/#mujoco) that are regularly used to test the performance of algorithms on environments with continuous actions. Since using MuJoCo requires a licence I used the free alternative PyBulletEnv (https://github.com/benelot/pybullet-gym) which has alternative implementation for all the important environments. Half-Cheetah is one of the simpler envs with 26 state variables and a continuous action vector with 6 variables.
 
