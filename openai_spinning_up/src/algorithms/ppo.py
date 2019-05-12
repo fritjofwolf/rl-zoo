@@ -40,7 +40,7 @@ class PPO():
             for j in range(K):
                 self._sess.run([train_policy],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1),
+                                            act_ph: np.array(acts).reshape(-1,6), # different for the two modes
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
@@ -48,7 +48,7 @@ class PPO():
             for j in range(30):
                 self._sess.run([train_state_value],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1),
+                                            act_ph: np.array(acts).reshape(-1,6), # different for the two modes
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
@@ -135,10 +135,19 @@ class PPO():
         rew_ph = tf.placeholder(shape=(None,1), dtype=tf.float32)
         terminal_ph = tf.placeholder(shape=(None,1), dtype=tf.float32)
 
-        # build networks
-        policy_network = self._build_network('tanh', self._n_acts)
-        old_policy_network = self._build_network('tanh', self._n_acts)
-        state_value_network = self._build_network('relu', 1)
+        self._sess = tf.Session()
+        if self._model_path:
+            print('Models loaded')
+            with self._sess.as_default():
+                policy_network = load_model(self._model_path+'/policy_network.h5')
+                old_policy_network = load_model(self._model_path+'/policy_network.h5')
+                state_value_network = load_model(self._model_path+'/state_network.h5')
+        else:
+            print('Used new models')
+            policy_network = self._build_network('tanh', self._n_acts)
+            old_policy_network = self._build_network('tanh', self._n_acts)
+            state_value_network = self._build_network('relu', 1)
+            self._sess.run(tf.global_variables_initializer())
         
         state_value = state_value_network(obs_ph)
         new_state_value = state_value_network(new_obs_ph)
@@ -149,7 +158,7 @@ class PPO():
 
         # make loss function whose gradient, for the right data, is policy gradient
         obs_logits = policy_network(obs_ph)
-        obs_logits_old_network = policy_network(obs_ph)
+        obs_logits_old_network = old_policy_network(obs_ph)
         tfd = tfp.distributions
         dist = tfd.Normal(loc=obs_logits, scale=np.ones(self._n_acts)*std)
         actions = dist.sample(1)[0]
@@ -161,6 +170,8 @@ class PPO():
         # action_masks = tf.one_hot(act_ph, self._n_acts)
         # selected_action_probs = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits), axis=1)
         # selected_action_probs_old_network = tf.reduce_sum(action_masks * tf.nn.softmax(obs_logits_old_network), axis=1)
+        assign_jobs = [v_t.assign(v) for v_t, v in zip(old_policy_network.trainable_weights, policy_network.trainable_weights)]
+
 
         r = selected_action_probs / tf.stop_gradient(selected_action_probs_old_network)
         advantages = td_target - state_value
@@ -174,11 +185,13 @@ class PPO():
         state_value_optimizer = tf.train.AdamOptimizer(self._learning_rate)
         train_policy = policy_optimizer.minimize(policy_loss)
         train_state_value = state_value_optimizer.minimize(state_value_loss)
-        self._sess = tf.Session()
+        # todo: this might not work with a loaded model
         self._sess.run(tf.global_variables_initializer())
 
+
         self._graph = [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, \
-                        policy_network, old_policy_network, actions, train_policy, train_state_value]
+                        policy_network, old_policy_network, state_value_network, \
+                         actions, train_policy, train_state_value, assign_jobs]
 
 
     def _build_network(self, activation = 'relu', n_output_units = 1):
