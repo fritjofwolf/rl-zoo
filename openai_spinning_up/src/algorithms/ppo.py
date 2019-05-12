@@ -32,7 +32,7 @@ class PPO():
 
 
     def train(self, n_epochs, K = 5):
-        [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value] = self._graph
+        [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value, assign_jobs] = self._graph
         data_collector = A2CDataCollector(self._sess, self._env_name, actions, obs_ph, 20, 20)
         for i in tqdm_notebook(range(n_epochs)):
             self._update_old_network()
@@ -67,9 +67,9 @@ class PPO():
         print('Models saved')
 
     def _update_old_network(self):
-        policy_network = self._graph[5]
-        old_policy_network = self._graph[6]
-        self._sess.run([v_t.assign(v) for v_t, v in zip(old_policy_network.trainable_weights, policy_network.trainable_weights)])
+        assign_jobs = self._graph[-1]
+        for job in assign_jobs:
+            self._sess.run(job)
 
     def _build_computational_graph_categorical_actions(self):
         # define placeholder
@@ -92,6 +92,8 @@ class PPO():
             old_policy_network = self._build_network('tanh', self._n_acts)
             state_value_network = self._build_network('relu', 1)
             self._sess.run(tf.global_variables_initializer())
+
+        assign_jobs = [v_t.assign(v) for v_t, v in zip(old_policy_network.trainable_weights, policy_network.trainable_weights)]
 
         state_value = state_value_network(obs_ph)
         new_state_value = state_value_network(new_obs_ph)
@@ -119,8 +121,10 @@ class PPO():
         self._sess.run(tf.variables_initializer(policy_optimizer.variables()))
         self._sess.run(tf.variables_initializer(state_value_optimizer.variables()))
 
+
         self._graph = [obs_ph, act_ph, new_obs_ph, rew_ph, terminal_ph, \
-                        policy_network, old_policy_network, state_value_network, actions, train_policy, train_state_value]
+                        policy_network, old_policy_network, state_value_network, actions, \
+                        train_policy, train_state_value, assign_jobs]
 
 
     def _build_computational_graph_continuous_actions(self):
