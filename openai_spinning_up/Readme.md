@@ -12,9 +12,12 @@ The set of algorithms corresponds to the choice suggested by OpenAI Spinning Up 
 
 ## Results
 
-Following, there are some results from the implementation of the Proximal Policy Optimization algorithm on two well-known test enviroments for reinforcement learning from the OpenAI Gym Enviroment ().
+Following, there are some results from the implementation of the Proximal Policy Optimization algorithm on two well-known test enviroments for reinforcement learning from the OpenAI Gym Enviroment.
 
-### LunarLander-v0
+### LunarLander-v2
 
+LunarLander-v2 (https://gym.openai.com/envs/LunarLander-v2/) is a simple enviroment with categorical actions. The goal is to land a lander onto the landing pad without crashing it by using three different fire engines while using as less fuel as possible. With 6 state variables, 4 different actions and a time horizon of 1000 steps, it is much harder to master than CartPole, but still easy enough to do several iterations in a reasonable amount of time.
+
+![Alt text](openai_spinning_up/media/lunar_lander_2000.jpg?raw=true "Average Performance for LunarLander-v2")
 
 ### Half-Cheetah-v0
