@@ -9,6 +9,7 @@ def visualize_episode_return(episode_returns, colors, smoothing_window = 100, ti
     fig = plt.figure(figsize=(12,12))
     for i in range(n_runs):
         plt.plot(range(smoothing_window,len(episode_returns[i])), episode_mean_returns[i], color=colors[i])
+    plt.title(title)
     plt.xlabel('Episodes')
     plt.ylabel('Mean Episode Return (smoothed over time window of ' + str(smoothing_window) + ' steps)')
     plt.title(title)
