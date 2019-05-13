@@ -48,7 +48,8 @@ class PPO():
             for j in range(30):
                 self._sess.run([train_state_value],feed_dict={
                                             obs_ph: np.array(obs).reshape(-1, self._obs_dim),
-                                            act_ph: np.array(acts).reshape(-1,6), # different for the two modes
+                                            act_ph: np.array(acts).reshape(-1), # different for the two modes
+                                            # act_ph: np.array(acts).reshape(-1, self._n_acts), # different for the two modes
                                             new_obs_ph: np.array(new_obs).reshape(-1, self._obs_dim),
                                             rew_ph: np.array(rews).reshape(-1, 1),
                                             terminal_ph: np.array(terminal).reshape(-1, 1)
