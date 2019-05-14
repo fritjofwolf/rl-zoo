@@ -10,6 +10,7 @@ The set of algorithms corresponds to the choice suggested by OpenAI Spinning Up 
 4. Proximal Policy Optimization
 5. Deep Deterministic Policy Gradient
 
+
 ## Results
 
 Following, there are some results from the implementation of the Proximal Policy Optimization algorithm on two well-known test enviroments for reinforcement learning from the OpenAI Gym Enviroment.
