@@ -1,6 +1,6 @@
 # Reinforcement Learning Algorithms
 
-This repository contains some of 
+This repository contains some implementations of Reinforcement Learning algorithms.
 
 ## Overview
 
